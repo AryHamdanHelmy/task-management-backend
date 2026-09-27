@@ -2,8 +2,7 @@ package handlers
 
 import "github.com/gin-gonic/gin"
 
-// ErrorResponse is the single shape used for every error returned by the API,
-// so clients only ever have to parse one format.
+
 type ErrorResponse struct {
 	Error struct {
 		Code    string `json:"code"`
@@ -22,7 +21,7 @@ func respondError(c *gin.Context, status int, code, message string) {
 	c.JSON(status, newError(code, message))
 }
 
-// Common error codes used across handlers.
+
 const (
 	CodeValidation   = "VALIDATION_ERROR"
 	CodeNotFound     = "NOT_FOUND"
@@ -31,7 +30,7 @@ const (
 	CodeBadRequest   = "BAD_REQUEST"
 )
 
-// Meta carries pagination info alongside a list response.
+
 type Meta struct {
 	Page  int `json:"page"`
 	Limit int `json:"limit"`

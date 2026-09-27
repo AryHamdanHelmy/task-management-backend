@@ -16,9 +16,6 @@ import (
 
 const listCacheTTL = 60 * time.Second
 
-// listCacheKeyPattern is used to find and invalidate every cached list page
-// after a write, since each distinct filter/page combo has its own key
-// (see models.TaskFilter.CacheKey).
 const listCacheKeyPattern = "tasks:list:*"
 
 type TaskHandler struct {
@@ -30,7 +27,6 @@ func NewTaskHandler(repo *models.TaskRepository, cache *redis.Client) *TaskHandl
 	return &TaskHandler{repo: repo, cache: cache}
 }
 
-// ---- List (GET /api/tasks) ----
 
 func (h *TaskHandler) List(c *gin.Context) {
 	filter := models.TaskFilter{
@@ -76,7 +72,6 @@ func (h *TaskHandler) List(c *gin.Context) {
 	ctx := c.Request.Context()
 	cacheKey := filter.CacheKey()
 
-	// Try cache first.
 	if cached, err := h.cache.Get(ctx, cacheKey).Result(); err == nil {
 		var resp ListResponse
 		if jsonErr := json.Unmarshal([]byte(cached), &resp); jsonErr == nil {
@@ -84,7 +79,6 @@ func (h *TaskHandler) List(c *gin.Context) {
 			c.JSON(http.StatusOK, resp)
 			return
 		}
-		// If unmarshal fails, fall through and re-fetch from DB.
 	}
 
 	tasks, total, err := h.repo.List(filter)
@@ -102,7 +96,6 @@ func (h *TaskHandler) List(c *gin.Context) {
 	}
 
 	if payload, err := json.Marshal(resp); err == nil {
-		// Best-effort cache write; a failure here shouldn't break the request.
 		h.cache.Set(ctx, cacheKey, payload, listCacheTTL)
 	}
 
@@ -110,7 +103,6 @@ func (h *TaskHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// ---- Get one (GET /api/tasks/:id) ----
 
 func (h *TaskHandler) Get(c *gin.Context) {
 	id, err := parseID(c)
@@ -132,7 +124,6 @@ func (h *TaskHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": task})
 }
 
-// ---- Create (POST /api/tasks) ----
 
 type taskInput struct {
 	Title       string  `json:"title" binding:"required"`
@@ -191,7 +182,6 @@ func (h *TaskHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"data": created})
 }
 
-// ---- Update (PUT /api/tasks/:id) ----
 
 func (h *TaskHandler) Update(c *gin.Context) {
 	id, err := parseID(c)
@@ -211,7 +201,6 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// Make sure the task exists before doing anything else.
 	if _, err := h.repo.GetByID(id); err != nil {
 		if err == sql.ErrNoRows {
 			respondError(c, http.StatusNotFound, CodeNotFound, "task not found")
@@ -259,7 +248,6 @@ func (h *TaskHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": updated})
 }
 
-// ---- Delete (DELETE /api/tasks/:id) — soft delete ----
 
 func (h *TaskHandler) Delete(c *gin.Context) {
 	id, err := parseID(c)
@@ -282,16 +270,12 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "task deleted"})
 }
 
-// ---- helpers ----
 
 func parseID(c *gin.Context) (int64, error) {
 	return strconv.ParseInt(c.Param("id"), 10, 64)
 }
 
-// invalidateListCache removes every cached GET /api/tasks page, since a
-// single write can affect the result of many different filter/page
-// combinations. Uses SCAN (not KEYS) so it doesn't block Redis on large
-// keyspaces.
+
 func (h *TaskHandler) invalidateListCache(ctx context.Context) {
 	iter := h.cache.Scan(ctx, 0, listCacheKeyPattern, 100).Iterator()
 	var keys []string

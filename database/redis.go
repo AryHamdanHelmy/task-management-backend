@@ -10,7 +10,6 @@ import (
 	"task-management-backend/config"
 )
 
-// NewRedis creates a go-redis client and verifies it with a PING.
 func NewRedis(cfg *config.Config) *redis.Client {
 	client := redis.NewClient(&redis.Options{
 		Addr:     cfg.RedisAddr,

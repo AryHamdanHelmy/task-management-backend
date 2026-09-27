@@ -11,7 +11,7 @@ import (
 	"task-management-backend/config"
 )
 
-// NewMySQL opens a connection pool to MySQL and verifies it with a ping.
+
 func NewMySQL(cfg *config.Config) *sql.DB {
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&loc=Local",
@@ -23,7 +23,6 @@ func NewMySQL(cfg *config.Config) *sql.DB {
 		log.Fatalf("failed to open mysql connection: %v", err)
 	}
 
-	// Reasonable pool defaults for a small service.
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(25)
 	db.SetConnMaxLifetime(5 * time.Minute)

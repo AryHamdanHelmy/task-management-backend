@@ -24,14 +24,6 @@ CREATE TABLE IF NOT EXISTS tasks (
         ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- NOTE: duplicate-title prevention among active (non-deleted) tasks is enforced
--- at the application level (handlers/task_handler.go), not via a DB unique
--- constraint. MySQL treats each NULL as distinct in a unique index, so a
--- composite UNIQUE(title, deleted_at) would NOT stop duplicate titles among
--- rows where deleted_at IS NULL. The app checks for an existing active task
--- with the same title before insert/update and returns HTTP 409 if found.
-
--- Indexes to speed up filtering (status, keyword search, assignee, sort)
 CREATE INDEX idx_tasks_status ON tasks(status);
 CREATE INDEX idx_tasks_assignee_id ON tasks(assignee_id);
 CREATE INDEX idx_tasks_deleted_at ON tasks(deleted_at);

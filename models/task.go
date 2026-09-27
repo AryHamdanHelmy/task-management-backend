@@ -41,18 +41,17 @@ type Task struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
-// TaskFilter holds the query params supported by GET /api/tasks.
+
 type TaskFilter struct {
-	Status     string // exact match on status
-	Keyword    string // matched against title/description
-	AssigneeID int64  // 0 means "not filtered"
-	Page       int    // 1-based
+	Status     string 
+	Keyword    string 
+	AssigneeID int64  
+	Page       int    
 	Limit      int
-	Sort       string // e.g. "created_at", "-created_at", "title", "-title"
+	Sort       string
 }
 
-// CacheKey builds a deterministic string from the filter so it can be
-// used as a Redis cache key (see Task 2 - order of fields matters, keep stable).
+
 func (f TaskFilter) CacheKey() string {
 	return fmt.Sprintf(
 		"tasks:list:status=%s:keyword=%s:assignee=%d:page=%d:limit=%d:sort=%s",
@@ -75,9 +74,7 @@ var allowedSortColumns = map[string]string{
 	"status":     "t.status",
 }
 
-// buildSort turns "-created_at" / "title" into a safe "ORDER BY" fragment.
-// Falls back to "created_at DESC" for anything not recognized, so a bad
-// sort param can't be used for SQL injection or error out the request.
+
 func buildSort(sort string) string {
 	if sort == "" {
 		return "t.created_at DESC"
@@ -95,8 +92,6 @@ func buildSort(sort string) string {
 	return fmt.Sprintf("%s %s", safeCol, dir)
 }
 
-// List returns tasks matching the filter plus the total count (for pagination),
-// excluding soft-deleted rows.
 func (r *TaskRepository) List(f TaskFilter) ([]Task, int, error) {
 	where := []string{"t.deleted_at IS NULL"}
 	args := []interface{}{}
@@ -117,7 +112,6 @@ func (r *TaskRepository) List(f TaskFilter) ([]Task, int, error) {
 
 	whereClause := strings.Join(where, " AND ")
 
-	// total count for pagination metadata
 	var total int
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM tasks t WHERE %s", whereClause)
 	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
@@ -133,7 +127,7 @@ func (r *TaskRepository) List(f TaskFilter) ([]Task, int, error) {
 		limit = 20
 	}
 	if limit > 100 {
-		limit = 100 // guard against absurdly large page sizes
+		limit = 100 
 	}
 	offset := (page - 1) * limit
 
@@ -226,9 +220,7 @@ func (r *TaskRepository) GetByID(id int64) (*Task, error) {
 	return &t, nil
 }
 
-// ExistsActiveTitle checks whether an active (non-deleted) task with this
-// title exists, optionally excluding one ID (used when updating a task so
-// it doesn't collide with itself). Used to return HTTP 409 on duplicates.
+
 func (r *TaskRepository) ExistsActiveTitle(title string, excludeID int64) (bool, error) {
 	query := "SELECT COUNT(*) FROM tasks WHERE title = ? AND deleted_at IS NULL AND id != ?"
 	var count int
@@ -238,7 +230,6 @@ func (r *TaskRepository) ExistsActiveTitle(title string, excludeID int64) (bool,
 	return count > 0, nil
 }
 
-// Create inserts a new task and returns its generated ID.
 func (r *TaskRepository) Create(t Task) (int64, error) {
 	query := `
 		INSERT INTO tasks (title, description, status, assignee_id)
@@ -251,7 +242,7 @@ func (r *TaskRepository) Create(t Task) (int64, error) {
 	return res.LastInsertId()
 }
 
-// Update overwrites the mutable fields of an existing, non-deleted task.
+
 func (r *TaskRepository) Update(t Task) error {
 	query := `
 		UPDATE tasks
@@ -272,8 +263,6 @@ func (r *TaskRepository) Update(t Task) error {
 	return nil
 }
 
-// SoftDelete marks a task as deleted by setting deleted_at, rather than
-// removing the row.
 func (r *TaskRepository) SoftDelete(id int64) error {
 	query := "UPDATE tasks SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL"
 	res, err := r.db.Exec(query, id)
